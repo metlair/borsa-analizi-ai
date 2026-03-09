@@ -101,7 +101,7 @@ if st.button("🚀 TÜM PİYASAYI TARA VE FIRSATLARI LİSTELE"):
     if firsatlar:
         st.subheader(f"🎯 {vade_secenek} İçin Potansiyel Fırsatlar")
         df_firsat = pd.DataFrame(firsatlar).sort_values(by="AI Güveni", ascending=False)
-        st.dataframe(df_res, use_container_width=True)
+        st.dataframe(df_firsat, use_container_width=True)
     else:
         st.warning("Seçilen kriterlerde şu an yükseliş sinyali veren hisse bulunamadı.")
 
@@ -117,3 +117,4 @@ else:
 if st.button("Seçili Hisseyi Analiz Et"):
     # Tekli analiz kodunu burada çalıştırıyoruz (aynı veri seti ve AI mantığıyla)
     st.write(f"{manuel_kod} için {vade_secenek} analizi raporlanıyor...")
+
