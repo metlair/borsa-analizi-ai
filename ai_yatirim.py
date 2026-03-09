@@ -4,10 +4,10 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
 # SAYFA AYARLARI
-st.set_page_config(page_title="Metin Yuksel - AI Financial Terminal", layout="wide")
-st.title("🛡️ Metin Yüksel - Profesyonel Yatırım Terminali v11.0")
+st.set_page_config(page_title="Metin Yuksel - AI Deep Analysis", layout="wide")
+st.title("🔬 Metin Yüksel - Hisse Röntgen ve Detaylı Analiz v12.0")
 
-# 200+ ALFABETİK HİSSE LİSTESİ
+# 200+ HİSSE LİSTESİ (Alfabetik)
 bist_full_list = sorted([
     "ADEL", "ADESE", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ", "AKBNK", "AKCNS", 
     "AKENR", "AKFGY", "AKFYE", "AKGRT", "AKSA", "AKSEN", "ALARK", "ALBRK", "ALFAS", "ALGYO", 
@@ -36,85 +36,91 @@ bist_full_list = sorted([
     "YKBNK", "YUNSA", "ZOREN", "ZRGYO"
 ])
 
-# SIDEBAR PARAMETRELERİ
-st.sidebar.header("📊 Analiz Ayarları")
-vade_secenek = st.sidebar.selectbox("Yatırım Vadesi:", ["Kısa Vade (1-15 Gün)", "Orta Vade (1-6 Ay)", "Uzun Vade (6 Ay+)"])
-min_guven = st.sidebar.slider("AI Güven Eşiği (%)", 50, 80, 52)
+# SIDEBAR (ANALİZ AYARLARI)
+st.sidebar.header("🎯 Strateji Merkezi")
+vade_secenek = st.sidebar.selectbox("Tahmin Vadesi:", ["Kısa Vade (1-15 Gün)", "Orta Vade (1-6 Ay)", "Uzun Vade (6 Ay+)"])
+min_guven = st.sidebar.slider("AI Filtresi (Min Güven %)", 50, 80, 55)
 
-# RADAR VE TARAMA
+# 1. RADAR TARAMA BÖLÜMÜ
 if st.button("🚀 TÜM PİYASAYI TARA VE FIRSATLARI LİSTELE"):
     firsatlar = []
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    # Vadeye göre hedef gün sayısı
+    pb = st.progress(0)
+    st_msg = st.empty()
     shift_map = {"Kısa Vade (1-15 Gün)": 5, "Orta Vade (1-6 Ay)": 22, "Uzun Vade (6 Ay+)": 60}
-    target_shift = shift_map[vade_secenek]
+    t_shift = shift_map[vade_secenek]
 
-    for i, hisse in enumerate(bist_full_list):
-        progress_bar.progress((i + 1) / len(bist_full_list))
-        status_text.text(f"Analiz Ediliyor: {hisse}")
-        
+    for i, h in enumerate(bist_full_list):
+        pb.progress((i + 1) / len(bist_full_list))
+        st_msg.text(f"Analiz Ediliyor: {h}")
         try:
-            sembol = f"{hisse}.IS"
-            data = yf.download(sembol, period="5y", interval="1d", progress=False)
-            
-            if not data.empty and len(data) > 65:
-                if isinstance(data.columns, pd.MultiIndex): data.columns = data.columns.get_level_values(0)
-                
-                # TEKNİK VERİLER
-                data['SMA_20'] = data['Close'].rolling(window=20).mean()
-                data['SMA_50'] = data['Close'].rolling(window=50).mean()
-                delta = data['Close'].diff()
+            d = yf.download(f"{h}.IS", period="2y", interval="1d", progress=False)
+            if not d.empty and len(d) > 60:
+                if isinstance(d.columns, pd.MultiIndex): d.columns = d.columns.get_level_values(0)
+                d['SMA_20'] = d['Close'].rolling(window=20).mean()
+                d['SMA_50'] = d['Close'].rolling(window=50).mean()
+                delta = d['Close'].diff()
                 gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
                 loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                data['RSI'] = 100 - (100 / (1 + (gain / loss)))
-                
-                # AI MODELLEME
-                data['Target'] = (data['Close'].shift(-target_shift) > data['Close']).astype(int)
-                features = ['Close', 'SMA_20', 'SMA_50', 'RSI']
-                clean_df = data[features + ['Target']].dropna()
-                
-                if not clean_df.empty:
-                    X = clean_df[features]
-                    y = clean_df['Target']
+                d['RSI'] = 100 - (100 / (1 + (gain / loss)))
+                d['Target'] = (d['Close'].shift(-t_shift) > d['Close']).astype(int)
+                feat = ['Close', 'SMA_20', 'SMA_50', 'RSI']
+                clean = d[feat + ['Target']].dropna()
+                if not clean.empty:
                     model = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
-                    model.fit(X, y)
-                    olasilik = model.predict_proba(data[features].tail(1))[0][1] * 100
-                    
-                    son_fiyat = data['Close'].iloc[-1]
-                    son_rsi = data['RSI'].iloc[-1]
-                    
-                    if olasilik >= min_guven and son_rsi < 65:
-                        firsatlar.append({
-                            "Hisse": hisse,
-                            "Fiyat": f"{float(son_fiyat):.2f} TL",
-                            "AI Güveni": f"%{olasilik:.1f}",
-                            "RSI": f"{son_rsi:.1f}",
-                            "Vade": vade_secenek
-                        })
-        except:
-            continue
-
-    status_text.text("Tarama Başarıyla Tamamlandı!")
-    st.markdown("---")
+                    model.fit(clean[feat], clean['Target'])
+                    prob = model.predict_proba(d[feat].tail(1))[0][1] * 100
+                    if prob >= min_guven and d['RSI'].iloc[-1] < 65:
+                        firsatlar.append({"Hisse": h, "AI Güveni": f"%{prob:.1f}", "RSI": f"{d['RSI'].iloc[-1]:.1f}"})
+        except: continue
+    
+    st_msg.text("Tarama Bitti!")
     if firsatlar:
-        st.subheader(f"🎯 {vade_secenek} İçin Potansiyel Fırsatlar")
-        df_firsat = pd.DataFrame(firsatlar).sort_values(by="AI Güveni", ascending=False)
-        st.dataframe(df_firsat, use_container_width=True)
+        df_f = pd.DataFrame(firsatlar).sort_values(by="AI Güveni", ascending=False)
+        st.subheader(f"✅ {vade_secenek} Fırsat Listesi")
+        st.table(df_f)
     else:
-        st.warning("Seçilen kriterlerde şu an yükseliş sinyali veren hisse bulunamadı.")
+        st.warning("Kriterlere uygun hisse bulunamadı.")
 
-# TEKLİ ANALİZ
 st.markdown("---")
-st.subheader("🔍 Spesifik Hisse Analizi")
-secilen_hisse = st.selectbox("Listeden Seç:", ["Kendim Yazacağım"] + bist_full_list)
-if secilen_hisse == "Kendim Yazacağım":
-    manuel_kod = st.text_input("Kod Yaz (Örn: BTC-USD):", "THYAO").upper()
-else:
-    manuel_kod = secilen_hisse
 
-if st.button("Seçili Hisseyi Analiz Et"):
-    # Tekli analiz kodunu burada çalıştırıyoruz (aynı veri seti ve AI mantığıyla)
-    st.write(f"{manuel_kod} için {vade_secenek} analizi raporlanıyor...")
+# 2. DERİN RÖNTGEN BÖLÜMÜ (1. Madde Burası!)
+st.subheader("🔍 Seçili Hisse İçin Derin Röntgen")
+detay_hisse = st.selectbox("Detaylı Rapor Almak İstediğiniz Hisseyi Seçin:", bist_full_list)
 
+if st.button("📊 Röntgeni Çek"):
+    with st.spinner('Detaylı rapor hazırlanıyor...'):
+        d = yf.download(f"{detay_hisse}.IS", period="1y", interval="1d")
+        if not d.empty:
+            if isinstance(d.columns, pd.MultiIndex): d.columns = d.columns.get_level_values(0)
+            
+            # Teknik Veriler
+            fiyat = d['Close'].iloc[-1]
+            sma20 = d['Close'].rolling(20).mean().iloc[-1]
+            sma200 = d['Close'].rolling(200).mean().iloc[-1]
+            rsi = 100 - (100 / (1 + (d['Close'].diff().where(d['Close'].diff() > 0, 0).rolling(14).mean() / -d['Close'].diff().where(d['Close'].diff() < 0, 0).rolling(14).mean()))) .iloc[-1]
+
+            st.markdown(f"### {detay_hisse} Stratejik Analiz Raporu")
+            
+            # Grafik
+            st.line_chart(d[['Close', 'Open']].tail(100))
+
+            # Raporlama
+            c1, c2 = st.columns(2)
+            with c1:
+                st.info("📌 **Teknik Durum**")
+                st.write(f"**Anlık Fiyat:** {fiyat:.2f} TL")
+                st.write(f"**20 Günlük Ortalamaya Uzaklık:** %{((fiyat/sma20)-1)*100:.2f}")
+                st.write(f"**RSI Gücü:** {rsi:.2f} (30 altı bedava, 70 üstü pahalı)")
+            
+            with c2:
+                st.info("🤖 **AI Neden Bu Kararı Verdi?**")
+                if rsi < 30:
+                    st.write("👉 Hisse 'aşırı satım' bölgesinde. Geçmişte bu seviyelerden hep tepki gelmiş.")
+                if fiyat < sma200:
+                    st.write("👉 Fiyat ana desteğin (200 günlük) altında. Uzun vadeli toplama alanı olabilir.")
+                if fiyat > sma20:
+                    st.write("👉 Kısa vadeli yükseliş trendi başlamış görünüyor (SMA20 üstü).")
+                else:
+                    st.write("👉 Henüz güçlü bir dönüş sinyali yok, kademeli alım daha güvenli.")
+
+            st.success(f"**Mühendislik Özeti:** {detay_hisse} şu an teknik olarak 'Doygunluk' evresinde. RSI ve ortalama desteğiyle %{rsi:.1f} puanlık bir teknik güce sahip.")
