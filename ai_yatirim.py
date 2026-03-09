@@ -48,11 +48,45 @@ if st.button("Teknik Analizi Başlat"):
             st.subheader(f"📊 {secilen_hisse} Teknik Görünüm")
             st.line_chart(data[['Close', 'SMA_20', 'SMA_200']].tail(200))
 
-            # 4. TEKNİK GEREKÇELER (Neden Analizi)
-            st.markdown("### 🔍 Neden Bu Karar Verildi?")
+           # 4. AKILLI ANALİZ RAPORU (Neden Kararı?)
+            st.markdown("### 🔍 AI Analiz Raporu")
+            
+            nedenler = []
             son_rsi = data['RSI'].iloc[-1]
             fiyat = data['Close'].iloc[-1]
             sma20 = data['SMA_20'].iloc[-1]
+            sma200 = data['SMA_200'].iloc[-1]
+
+            # RSI Yorumu
+            if son_rsi < 30:
+                nedenler.append(f"⚠️ **RSI ({son_rsi:.2f}):** Hisse aşırı satım bölgesinde. Teknik olarak bir tepki yükselişi gelebilir ancak trend hala çok zayıf.")
+            elif son_rsi > 70:
+                nedenler.append(f"🔥 **RSI ({son_rsi:.2f}):** Hisse aşırı alım bölgesinde. Kar satışları kapıda olabilir, dikkatli olun.")
+            
+            # Ortalama Yorumu
+            if fiyat < sma20:
+                nedenler.append(f"📉 **Trend:** Fiyat 20 günlük ortalamanın altında. Kısa vadeli düşüş baskısı devam ediyor.")
+            else:
+                nedenler.append(f"🚀 **Trend:** Fiyat 20 günlük ortalamanın üzerinde. Kısa vadeli ivme pozitif.")
+
+            # Uzun Vade Ekstra Yorumu
+            if vade == "Uzun Vade (6 Ay - 1 Yıl)":
+                if fiyat < sma200:
+                    nedenler.append(f"🧱 **Direnç:** Fiyat 200 günlük 'ana desteğin' altında kalmış. Uzun vadeli toparlanma zaman alabilir.")
+                else:
+                    nedenler.append(f"🛡️ **Güven:** Fiyat 200 günlük ortalamanın üzerinde, uzun vadeli trend hala güvenli bölgede.")
+
+            # Karar Kutusu
+            if olasilik > 60:
+                st.success(f"📈 AI STRATEJİSİ: GÜÇLÜ AL (%{olasilik:.1f})")
+            elif olasilik < 40:
+                st.error(f"📉 AI STRATEJİSİ: SAT / BEKLE (%{100-olasilik:.1f})")
+            else:
+                st.warning(f"⚖️ AI STRATEJİSİ: NÖTR / İZLE (%{olasilik:.1f})")
+
+            # Nedenleri Liste Olarak Yazdır
+            for n in nedenler:
+                st.write(n)
 
             if olasilik > 60:
                 st.success(f"📈 AI TAVSİYESİ: AL SİNYALİ (%{olasilik:.1f})")
@@ -71,3 +105,4 @@ if st.button("Teknik Analizi Başlat"):
 
         else:
             st.error("Veri çekilemedi.")
+
