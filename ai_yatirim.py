@@ -4,10 +4,10 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
 # SAYFA AYARLARI
-st.set_page_config(page_title="Metin Yuksel - AI Deep Analysis", layout="wide")
-st.title("🔬 Metin Yüksel - Hisse Röntgen ve Detaylı Analiz v12.0")
+st.set_page_config(page_title="Metin Yuksel - Borsa Terminali", layout="wide")
+st.title("🛡️ Metin Yüksel - Profesyonel Yatırım Terminali v14.0")
 
-# 200+ HİSSE LİSTESİ (Alfabetik)
+# 200+ HİSSE LİSTESİ
 bist_full_list = sorted([
     "ADEL", "ADESE", "AEFES", "AFYON", "AGESA", "AGHOL", "AGROT", "AHGAZ", "AKBNK", "AKCNS", 
     "AKENR", "AKFGY", "AKFYE", "AKGRT", "AKSA", "AKSEN", "ALARK", "ALBRK", "ALFAS", "ALGYO", 
@@ -36,12 +36,11 @@ bist_full_list = sorted([
     "YKBNK", "YUNSA", "ZOREN", "ZRGYO"
 ])
 
-# SIDEBAR (ANALİZ AYARLARI)
 st.sidebar.header("🎯 Strateji Merkezi")
 vade_secenek = st.sidebar.selectbox("Tahmin Vadesi:", ["Kısa Vade (1-15 Gün)", "Orta Vade (1-6 Ay)", "Uzun Vade (6 Ay+)"])
-min_guven = st.sidebar.slider("AI Filtresi (Min Güven %)", 50, 80, 55)
+min_guven = st.sidebar.slider("AI Filtresi (Min Güven %)", 50, 80, 52)
 
-# 1. RADAR TARAMA BÖLÜMÜ
+# RADAR TARAMA
 if st.button("🚀 TÜM PİYASAYI TARA VE FIRSATLARI LİSTELE"):
     firsatlar = []
     pb = st.progress(0)
@@ -83,50 +82,65 @@ if st.button("🚀 TÜM PİYASAYI TARA VE FIRSATLARI LİSTELE"):
 
 st.markdown("---")
 
-# 2. DERİN RÖNTGEN BÖLÜMÜ (1. Madde Burası!)
+# DERİN RÖNTGEN VE NET ANALİZ
 st.subheader("🔍 Seçili Hisse İçin Derin Röntgen")
-detay_hisse = st.selectbox("Detaylı Rapor Almak İstediğiniz Hisseyi Seçin:", bist_full_list)
+detay_hisse = st.selectbox("Hisse Seçin:", bist_full_list)
 
 if st.button("📊 Röntgeni Çek"):
-    with st.spinner('Detaylı rapor hazırlanıyor...'):
-        d = yf.download(f"{detay_hisse}.IS", period="1y", interval="1d")
+    with st.spinner('Derin analiz yapılıyor...'):
+        d = yf.download(f"{detay_hisse}.IS", period="2y", interval="1d")
         if not d.empty:
             if isinstance(d.columns, pd.MultiIndex): d.columns = d.columns.get_level_values(0)
             
-            # Teknik Veriler
+            # TEKNİK VERİLERİ YENİDEN HESAPLA (Hata almamak için)
+            d['SMA_20'] = d['Close'].rolling(20).mean()
+            d['SMA_50'] = d['Close'].rolling(50).mean()
+            d['SMA_200'] = d['Close'].rolling(200).mean()
+            delta = d['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+            d['RSI'] = 100 - (100 / (1 + (gain / loss)))
+            
+            # AI TAHMİNİNİ RÖNTGEN İÇİN TEKRAR ÇALIŞTIR
+            shift_map = {"Kısa Vade (1-15 Gün)": 5, "Orta Vade (1-6 Ay)": 22, "Uzun Vade (6 Ay+)": 60}
+            t_shift = shift_map[vade_secenek]
+            d['Target'] = (d['Close'].shift(-t_shift) > d['Close']).astype(int)
+            feat = ['Close', 'SMA_20', 'SMA_50', 'RSI']
+            clean = d[feat + ['Target']].dropna()
+            
+            model = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
+            model.fit(clean[feat], clean['Target'])
+            olasilik = model.predict_proba(d[feat].tail(1))[0][1] * 100
+
             fiyat = d['Close'].iloc[-1]
-            sma20 = d['Close'].rolling(20).mean().iloc[-1]
-            sma200 = d['Close'].rolling(200).mean().iloc[-1]
-            rsi = 100 - (100 / (1 + (d['Close'].diff().where(d['Close'].diff() > 0, 0).rolling(14).mean() / -d['Close'].diff().where(d['Close'].diff() < 0, 0).rolling(14).mean()))) .iloc[-1]
+            rsi = d['RSI'].iloc[-1]
+            sma20 = d['SMA_20'].iloc[-1]
+            sma200 = d['SMA_200'].iloc[-1]
 
             st.markdown(f"### {detay_hisse} Stratejik Analiz Raporu")
-            
-            # Grafik
-            st.line_chart(d[['Close', 'Open']].tail(100))
+            st.line_chart(d[['Close', 'SMA_20', 'SMA_50']].tail(120))
 
-            # Raporlama
+            # HEDEF FİYAT (Basit mühendislik tahmini: AI güveni ve volatilite bazlı)
+            hedef_fiyat = fiyat * (1 + (olasilik/500)) if olasilik > 50 else fiyat
+
             c1, c2 = st.columns(2)
             with c1:
                 st.info("📌 **Teknik Durum**")
-                st.write(f"**Anlık Fiyat:** {fiyat:.2f} TL")
-                st.write(f"**20 Günlük Ortalamaya Uzaklık:** %{((fiyat/sma20)-1)*100:.2f}")
-                st.write(f"**RSI Gücü:** {rsi:.2f} (30 altı bedava, 70 üstü pahalı)")
+                st.write(f"**Anlık Fiyat:** {float(fiyat):.2f} TL")
+                st.write(f"**AI Beklentisi (Hedef):** {float(hedef_fiyat):.2f} TL")
+                st.write(f"**RSI Gücü:** {rsi:.2f}")
             
             with c2:
                 st.info("🤖 **AI Strateji Notu**")
-                
-                # NET KONUŞAN MANTIK
-                if rsi < 25 and olasilik > 60:
-                    st.success("🔥 **BÜYÜK FIRSAT:** Bu hisse resmen 'bedava' kalmış. Hem AI çok emin hem de teknik olarak dipte. Alım için harika bir yer!")
+                if rsi < 28 and olasilik > 55:
+                    st.success("🔥 **BÜYÜK FIRSAT:** Hisse bedava kalmış. Alım için harika bir yer!")
                 elif olasilik > 55 and fiyat > sma20:
-                    st.success("🚀 **ALINABİLİR:** Yükseliş treni başlamış, arkana yaslanabilirsin. AI da artış bekliyor.")
-                elif rsi < 30:
-                    st.warning("💎 **DİPTE AMA BEKLE:** Fiyat çok ucuz ama henüz 'yukarı' dönmemiş. Parça parça toplanabilir (Kademeli Alım).")
-                elif olasilik < 40:
-                    st.error("❌ **ALINMAZ / UZAK DUR:** AI düşüş bekliyor. Teknik veriler de zayıf, macera aramaya gerek yok.")
+                    st.success("🚀 **ALINABİLİR:** Yükseliş trendi başlamış. AI artış bekliyor.")
+                elif rsi < 35:
+                    st.warning("💎 **DİPTE AMA BEKLE:** Çok ucuz ama henüz dönüş yok. Kademeli alım yapılabilir.")
+                elif olasilik < 45:
+                    st.error("❌ **ALINMAZ / UZAK DUR:** AI düşüş bekliyor. Macera aramaya gerek yok.")
                 else:
-                    st.write("🔎 **BELİRSİZ:** Net bir 'Al' sinyali yok. İzlemede kalmak, nakit korumak daha mantıklı.")
+                    st.write("🔎 **BELİRSİZ:** Net bir 'Al' sinyali yok. Nakitte kalmak daha mantıklı.")
 
-                # Risk Uyarısı (Profesyonel Dokunuş)
-                st.warning(f"⚠️ **Unutma:** AI tahmini %{olasilik:.1f} güven veriyor. Stop-loss seviyen olan {son_fiyat*0.95:.2f} TL'yi mutlaka takip et.")
-
+            st.caption(f"Yasal Uyarı: AI tahmini %{olasilik:.1f} güven vermektedir. Yatırım tavsiyesi değildir.")
