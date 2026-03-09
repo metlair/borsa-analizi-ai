@@ -113,14 +113,20 @@ if st.button("📊 Röntgeni Çek"):
                 st.write(f"**RSI Gücü:** {rsi:.2f} (30 altı bedava, 70 üstü pahalı)")
             
             with c2:
-                st.info("🤖 **AI Neden Bu Kararı Verdi?**")
-                if rsi < 30:
-                    st.write("👉 Hisse 'aşırı satım' bölgesinde. Geçmişte bu seviyelerden hep tepki gelmiş.")
-                if fiyat < sma200:
-                    st.write("👉 Fiyat ana desteğin (200 günlük) altında. Uzun vadeli toplama alanı olabilir.")
-                if fiyat > sma20:
-                    st.write("👉 Kısa vadeli yükseliş trendi başlamış görünüyor (SMA20 üstü).")
+                st.info("🤖 **AI Strateji Notu**")
+                
+                # NET KONUŞAN MANTIK
+                if rsi < 25 and olasilik > 60:
+                    st.success("🔥 **BÜYÜK FIRSAT:** Bu hisse resmen 'bedava' kalmış. Hem AI çok emin hem de teknik olarak dipte. Alım için harika bir yer!")
+                elif olasilik > 55 and fiyat > sma20:
+                    st.success("🚀 **ALINABİLİR:** Yükseliş treni başlamış, arkana yaslanabilirsin. AI da artış bekliyor.")
+                elif rsi < 30:
+                    st.warning("💎 **DİPTE AMA BEKLE:** Fiyat çok ucuz ama henüz 'yukarı' dönmemiş. Parça parça toplanabilir (Kademeli Alım).")
+                elif olasilik < 40:
+                    st.error("❌ **ALINMAZ / UZAK DUR:** AI düşüş bekliyor. Teknik veriler de zayıf, macera aramaya gerek yok.")
                 else:
-                    st.write("👉 Henüz güçlü bir dönüş sinyali yok, kademeli alım daha güvenli.")
+                    st.write("🔎 **BELİRSİZ:** Net bir 'Al' sinyali yok. İzlemede kalmak, nakit korumak daha mantıklı.")
 
-            st.success(f"**Mühendislik Özeti:** {detay_hisse} şu an teknik olarak 'Doygunluk' evresinde. RSI ve ortalama desteğiyle %{rsi:.1f} puanlık bir teknik güce sahip.")
+                # Risk Uyarısı (Profesyonel Dokunuş)
+                st.warning(f"⚠️ **Unutma:** AI tahmini %{olasilik:.1f} güven veriyor. Stop-loss seviyen olan {son_fiyat*0.95:.2f} TL'yi mutlaka takip et.")
+
